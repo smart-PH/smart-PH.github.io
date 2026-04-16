@@ -78,7 +78,7 @@
         </nav>
         <div class="p-4 border-t border-gray-100 text-sm text-center text-gray-400">
             <p class="text-[11px] font-normal text-gray-400">Powered by LexPro</p>
-            <p class="text-[11px] mt-0.5 text-gray-400">v2.3.0 - Sync Cloud</p>
+            <p class="text-[11px] mt-0.5 text-gray-400">v3.0 - Sync Cloud</p>
         </div>
     </aside>
 
@@ -1276,8 +1276,8 @@
 
     <!-- SCRIPT DE CONTROL GENERAL -->
     <script>
-        // PEGA AQUÍ TU URL GENERADA EN APPS SCRIPT
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwo3H9LftAnr0iQBJHRahRE0J_NaTC67uG31PLfdGedx2yznmcJoG127oqrczYLhbK16g/exec"; 
+        // PEGA AQUÍ TU URL GENERADA EN APPS SCRIPT LUEGO DE ACTUALIZAR EL CODIGO.GS
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzgyABBb3RsoXUGYlDHgOI6ceSpUYb2NJNetl2KszYMaL1KYID1VNt4zS1IEZMZBq9/exec"; 
 
         let consecutivoRecibo = 1050; let consecutivoEgreso = 500; let consecutivoPazSalvo = 300; let consecutivoCertDeuda = 150; let consecutivoAcuerdo = 50;
 
@@ -1290,17 +1290,10 @@
         }
 
         // =========================================================
-        // COMUNICACIÓN CON APPS SCRIPT (CORS FIX)
+        // COMUNICACIÓN CON APPS SCRIPT 
         // =========================================================
         async function sendToGoogleSheets(action, data) {
-            // Verificación de seguridad para evitar uso sin URL propia.
-            if (APPS_SCRIPT_URL.includes("AKfycbwZiqih-2e5OZb1KWpU5iFL6X") && action !== 'getAllData') {
-                console.warn("ADVERTENCIA: Estás usando la URL por defecto de prueba.");
-            }
-
             try {
-                // Al quitar los Headers, obligamos al navegador a enviar la petición como 'text/plain' por defecto.
-                // Esto esquiva la petición Preflight de CORS que Google Apps Script suele bloquear.
                 const response = await fetch(APPS_SCRIPT_URL, { 
                     method: 'POST', 
                     body: JSON.stringify({ action: action, data: data }) 
@@ -1314,7 +1307,7 @@
                 return result;
             } catch (error) { 
                 console.error('Error de conexión con Sheets:', error); 
-                alert("Hubo un error de red y el cambio NO se pudo guardar en la nube. Verifica tu conexión o la URL de Apps Script.");
+                alert("Hubo un error de red y la acción NO se pudo procesar en la nube. Verifica tu conexión o la URL de Apps Script.");
                 return null; 
             }
         }
@@ -1324,11 +1317,11 @@
         // =========================================================
         function saveLocalCache() {
             const data = { residentesList, inventarioActivos, parqueaderosAdminList, transaccionesList, votacionesList, documentosList, carteraDatos, parqueaderosComunes };
-            localStorage.setItem('smartph_data_v2', JSON.stringify(data));
+            localStorage.setItem('smartph_data_v3', JSON.stringify(data));
         }
 
         function loadLocalCache() {
-            const cached = localStorage.getItem('smartph_data_v2');
+            const cached = localStorage.getItem('smartph_data_v3');
             if(cached) {
                 try {
                     const data = JSON.parse(cached);
@@ -1877,14 +1870,49 @@
         }
 
         // =========================================================
-        // VOTACIONES
+        // VOTACIONES (CON ENVÍO DE CORREOS)
         // =========================================================
         function renderVotaciones() {
             const grid = document.getElementById('grid-votaciones'); if(!grid) return; grid.innerHTML = '';
             votacionesList.forEach((v, index) => {
                 const totalVotos = v.votosSi + v.votosNo; const pctSi = totalVotos === 0 ? 0 : Math.round((v.votosSi / totalVotos) * 100); const pctNo = totalVotos === 0 ? 0 : Math.round((v.votosNo / totalVotos) * 100);
-                grid.innerHTML += `<div class="border rounded-lg p-5 bg-white shadow-md relative group"><button onclick="editarPropuesta(${index})" class="absolute top-4 right-4 text-gray-400 hover:text-blue-500 transition opacity-0 group-hover:opacity-100"><i class="fa-solid fa-pen"></i></button><h3 class="font-bold text-gray-800 text-lg mb-2">${v.titulo}</h3><p class="text-sm text-gray-600 mb-4 line-clamp-2">${v.descripcion}</p><div class="space-y-3 mb-4"><div><div class="flex justify-between text-xs mb-1"><span class="text-accent"><i class="fa-solid fa-thumbs-up mr-1"></i> Aprobar</span><span>${pctSi}%</span></div><div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-accent h-2 rounded-full" style="width: ${pctSi}%"></div></div></div></div></div>`;
+                grid.innerHTML += `<div class="border rounded-lg p-5 bg-white shadow-md relative group">
+                    <div class="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition">
+                        <button onclick="enviarVotacionCorreo('${v.id}', this)" class="text-gray-400 hover:text-green-500 transition px-2" title="Enviar Votación por Correo"><i class="fa-solid fa-envelope"></i></button>
+                        <button onclick="editarPropuesta(${index})" class="text-gray-400 hover:text-blue-500 transition px-2" title="Editar Propuesta"><i class="fa-solid fa-pen"></i></button>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-2 pr-16">${v.titulo}</h3>
+                    <p class="text-sm text-gray-600 mb-4 line-clamp-2">${v.descripcion}</p>
+                    <div class="space-y-3 mb-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-accent font-bold"><i class="fa-solid fa-thumbs-up mr-1"></i> Aprueban (${v.votosSi})</span>
+                                <span class="font-bold">${pctSi}%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-accent h-2 rounded-full" style="width: ${pctSi}%"></div></div>
+                        </div>
+                    </div>
+                </div>`;
             });
+        }
+
+        async function enviarVotacionCorreo(idPropuesta, btnElement) {
+            if(!confirm('¿Desea enviar esta propuesta por correo a los residentes para votación?\n\nLa herramienta enviará un email con los botones de aprobación.')) return;
+            
+            const originalHTML = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btnElement.disabled = true;
+
+            const result = await sendToGoogleSheets('enviarCorreosVotacion', { idPropuesta: idPropuesta });
+            
+            if (result && result.success) {
+                alert(`¡Éxito! Se enviaron ${result.enviados} correos electrónicos.`);
+            } else {
+                alert('Hubo un error al enviar los correos: ' + (result ? result.error : 'Error de red.'));
+            }
+            
+            btnElement.innerHTML = originalHTML;
+            btnElement.disabled = false;
         }
 
         function openModalPropuesta() { document.getElementById('vo-editing-index').value = '-1'; document.getElementById('vo-id').value = 'VOT-' + Date.now(); document.getElementById('form-propuesta').reset(); document.getElementById('btn-delete-propuesta').classList.add('hidden'); document.getElementById('modal-propuesta').classList.remove('hidden'); document.getElementById('modal-propuesta').classList.add('flex'); }
